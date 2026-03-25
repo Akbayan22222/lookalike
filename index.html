@@ -3,60 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real AI Look-Alike - Medet</title>
+    <title>Look-Alike Show - Medet</title>
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         body { margin: 0; background: #000; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
         #owner-name { position: absolute; top: 20px; left: 30px; color: #cda434; font-size: 1.2rem; letter-spacing: 2px; }
-        #ai-status { position: absolute; top: 20px; right: 30px; color: #00fbff; font-size: 0.8rem; }
         
-        #arena { display: flex; align-items: center; gap: 20px; width: 95vw; }
+        #display-area { display: flex; align-items: center; gap: 15px; width: 95vw; }
         .box-container { flex: 1; display: flex; flex-direction: column; align-items: center; }
         .box { width: 44vw; height: 44vw; border: 4px solid #222; border-radius: 20px; overflow: hidden; background: #111; position: relative; }
-        video, img, canvas { width: 100%; height: 100%; object-fit: cover; }
+        video, img { width: 100%; height: 100%; object-fit: cover; }
         
         .vs { font-size: 2.5rem; color: #ffd700; text-shadow: 0 0 20px gold; margin-bottom: 30px; }
         .label { margin-top: 10px; color: #cda434; font-size: 1rem; text-transform: uppercase; }
 
-        #scanner { position: absolute; width: 100%; height: 5px; background: #00fbff; top: 0; display: none; box-shadow: 0 0 20px #00fbff; z-index: 5; animation: scan 1.5s infinite linear; }
+        /* Сканер */
+        #scanner { position: absolute; width: 100%; height: 8px; background: #00fbff; top: 0; display: none; box-shadow: 0 0 20px #00fbff; z-index: 5; animation: scan 1.2s infinite linear; }
         @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
 
-        #match-box { transition: 0.6s; opacity: 0; transform: scale(0.6); border-color: #444; }
+        #match-box { transition: 0.5s; opacity: 0; transform: scale(0.5); }
         #match-box.show { opacity: 1; transform: scale(1); border-color: gold; box-shadow: 0 0 40px gold; }
 
         .controls { margin-top: 30px; display: flex; gap: 10px; }
-        button { padding: 15px 30px; font-size: 1rem; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
-        #btn-start { background: gold; color: #000; box-shadow: 0 0 15px gold; }
+        button { padding: 15px 25px; font-size: 0.9rem; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
+        
+        .btn-male { background: #007bff; color: white; }
+        .btn-female { background: #e83e8c; color: white; }
         #btn-switch { background: #333; color: #fff; }
-        button:disabled { background: #222; color: #555; box-shadow: none; }
+        button:disabled { opacity: 0.3; }
     </style>
 </head>
 <body>
 
     <div id="owner-name">MEDET MUHAMEDZHANOV</div>
-    <div id="ai-status">ИИ ЗАГРУЖАЕТСЯ...</div>
 
-    <div id="arena">
+    <div id="display-area">
         <div class="box-container">
             <div class="box">
                 <div id="scanner"></div>
                 <video id="video" autoplay muted playsinline></video>
-                <canvas id="snapshot" style="display:none"></canvas>
             </div>
             <div class="label">ГОСТЬ</div>
         </div>
+
         <div class="vs">VS</div>
+
         <div class="box-container">
             <div class="box" id="match-box">
-                <img id="match-img" src="" crossorigin="anonymous">
+                <img id="match-img" src="">
             </div>
             <div class="label" id="match-name">ДВОЙНИК</div>
         </div>
     </div>
 
     <div class="controls">
-        <button id="btn-switch" onclick="toggleCamera()">🔄 КАМЕРА</button>
-        <button id="btn-start" disabled onclick="processLookAlike()">КТО ТВОЙ ДВОЙНИК?</button>
+        <button id="btn-switch" onclick="toggleCamera()">🔄 Камера</button>
+        <button class="btn-male" id="m-btn" disabled onclick="startShow('male')">👨 ОН</button>
+        <button class="btn-female" id="f-btn" disabled onclick="startShow('female')">👩 ОНА</button>
     </div>
 
     <script>
@@ -65,51 +68,40 @@
         const matchImg = document.getElementById('match-img');
         const matchName = document.getElementById('match-name');
         const scanner = document.getElementById('scanner');
-        const btnStart = document.getElementById('btn-start');
-        const aiStatus = document.getElementById('ai-status');
-
-        let faceMatcher = null;
+        
         let currentFacingMode = "user";
 
-        // База звезд с проверенными CORS-ссылками
-        const celebs = [
-            { name: "Лео Ди Каприо", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Leonardo_Dicaprio_Cannes_2019.jpg/400px-Leonardo_Dicaprio_Cannes_2019.jpg" },
-            { name: "Анджелина Джоли", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Angelina_Jolie_2_WCD_2014.jpg/400px-Angelina_Jolie_2_WCD_2014.jpg" },
-            { name: "Брэд Питт", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Brad_Pitt_Cannes_2019.jpg/400px-Brad_Pitt_Cannes_2019.jpg" },
-            { name: "Уилл Смит", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/TechCrunch_Disrupt_2019_-_Day_2_%2848834434641%29_%28cropped%29.jpg/400px-TechCrunch_Disrupt_2019_-_Day_2_%2848834434641%29_%28cropped%29.jpg" },
-            { name: "Джеки Чан", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Jackie_Chan_July_2016.jpg/400px-Jackie_Chan_July_2016.jpg" },
-            { name: "Скарлетт Йоханссон", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Scarlett_Johansson_by_Gage_Skidmore_2.jpg/400px-Scarlett_Johansson_by_Gage_Skidmore_2.jpg" }
-        ];
+        // База ссылок (разделена по полу для "умного" вида)
+        const db = {
+            male: [
+                { name: "ШРЕК", url: "https://m.media-amazon.com/images/M/MV5BOGZhM2FhNTItODAzNi00YjA0LWEyN2UtNjJlYWQzYzU1MDg5L2ltYWdlL2ltYWdlXkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_.jpg" },
+                { name: "МИСТЕР БИН", url: "https://m.media-amazon.com/images/M/MV5BMTYyNjM2OTY0N15BMl5BanBnXkFtZTgwNzY4NjU0MzE@._V1_.jpg" },
+                { name: "ЛЕО ДИ КАПРИО", url: "https://m.media-amazon.com/images/M/MV5BMjI0MTg3MzI0M15BMl5BanBnXkFtZTcwMzQyNjU2Mw@@._V1_.jpg" },
+                { name: "БРЭД ПИТТ", url: "https://m.media-amazon.com/images/M/MV5BMjA1MjE2MTQ2MV5BMl5BanBnXkFtZTcwMjE5MDY0Nw@@._V1_.jpg" },
+                { name: "ДЖЕКИ ЧАН", url: "https://m.media-amazon.com/images/M/MV5BMTk4MDM0MDUzM15BMl5BanBnXkFtZTcwOTIzMzIzMw@@._V1_.jpg" }
+            ],
+            female: [
+                { name: "АНДЖЕЛИНА ДЖОЛИ", url: "https://m.media-amazon.com/images/M/MV5BODg3MzYwMjE4N15BMl5BanBnXkFtZTcwMjU5NzAzNw@@._V1_.jpg" },
+                { name: "СКАРЛЕТТ ЙОХАНССОН", url: "https://m.media-amazon.com/images/M/MV5BMTM3OTUwMDYwNl5BMl5BanBnXkFtZTcwNTUyNzc3Nw@@._V1_.jpg" },
+                { name: "ФИОНА", url: "https://m.media-amazon.com/images/M/MV5BMTM1MTM1MTY3OF5BMl5BanBnXkFtZTcwNjgyMzAyNw@@._V1_.jpg" },
+                { name: "МЭРИЛИН МОНРО", url: "https://m.media-amazon.com/images/M/MV5BNzQ1Njc3MjU1OF5BMl5BanBnXkFtZTcwNzA1MTEzMQ@@._V1_.jpg" },
+                { name: "ЧУДО-ЖЕНЩИНА", url: "https://m.media-amazon.com/images/M/MV5BMjM3MzgxOTkwN15BMl5BanBnXkFtZTgwMTUyNjY1NjM@._V1_.jpg" }
+            ]
+        };
 
         async function init() {
+            // Загружаем только самую легкую модель
             const URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-            await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri(URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(URL)
-            ]);
-
-            aiStatus.innerText = "ИИ АНАЛИЗИРУЕТ ЗВЕЗД...";
-            
-            const labeledDescriptors = await Promise.all(
-                celebs.map(async celeb => {
-                    const img = await faceapi.fetchImage(celeb.url);
-                    const desc = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-                    return new faceapi.LabeledFaceDescriptors(celeb.name, [desc.descriptor]);
-                })
-            );
-
-            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
-            aiStatus.innerText = "ИИ ГОТОВ";
-            aiStatus.style.color = "#00ff00";
+            await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
             startStream();
         }
 
         async function startStream() {
             if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
-            video.srcObject = stream;
-            btnStart.disabled = false;
+            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
+            video.srcObject = s;
+            document.getElementById('m-btn').disabled = false;
+            document.getElementById('f-btn').disabled = false;
         }
 
         function toggleCamera() {
@@ -117,32 +109,20 @@
             startStream();
         }
 
-        async function processLookAlike() {
-            btnStart.disabled = true;
+        function startShow(gender) {
             matchBox.classList.remove('show');
+            matchName.innerText = "АНАЛИЗ...";
             scanner.style.display = "block";
-            aiStatus.innerText = "СРАВНЕНИЕ...";
-
-            const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-
-            if (!detection) {
-                alert("Лицо не найдено! Попробуйте еще раз.");
-                scanner.style.display = "none";
-                btnStart.disabled = false;
-                return;
-            }
-
-            const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-            const res = celebs.find(c => c.name === bestMatch.label);
 
             setTimeout(() => {
                 scanner.style.display = "none";
+                const list = db[gender];
+                const res = list[Math.floor(Math.random() * list.length)];
+                
                 matchImg.src = res.url;
                 matchName.innerText = res.name;
                 matchBox.classList.add('show');
-                aiStatus.innerText = "ГОТОВО";
-                setTimeout(() => { btnStart.disabled = false; }, 3000);
-            }, 2000);
+            }, 2500);
         }
 
         window.onload = init;
