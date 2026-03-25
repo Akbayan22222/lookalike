@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Look-Alike Show - Medet</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <style>
+        body { margin: 0; background: #000; color: white; font-family: 'Arial Black', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        #owner-name { position: absolute; top: 20px; left: 30px; color: #cda434; font-size: 1.2rem; letter-spacing: 2px; }
+        
+        #display-area { display: flex; align-items: center; gap: 20px; width: 95vw; }
+        .box-container { flex: 1; display: flex; flex-direction: column; align-items: center; }
+        .box { width: 42vw; height: 42vw; border: 4px solid #222; border-radius: 20px; overflow: hidden; background: #111; position: relative; }
+        video, img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .vs { font-size: 3rem; color: #ffd700; text-shadow: 0 0 20px gold; margin-bottom: 40px; }
+        .label { margin-top: 15px; color: #cda434; font-size: 1.2rem; text-transform: uppercase; }
+
+        /* Анимация сканера */
+        #scanner { position: absolute; width: 100%; height: 5px; background: #00fbff; top: 0; display: none; box-shadow: 0 0 20px #00fbff; z-index: 5; animation: scan 1.5s infinite linear; }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+
+        #match-box { transition: 0.5s; opacity: 0; transform: scale(0.5); }
+        #match-box.show { opacity: 1; transform: scale(1); border-color: gold; box-shadow: 0 0 40px gold; }
+
+        button { margin-top: 40px; padding: 20px 50px; font-size: 1.4rem; background: gold; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:disabled { background: #333; color: #777; }
+    </style>
+</head>
+<body>
+
+    <div id="owner-name">MEDET MUHAMEDZHANOV</div>
+
+    <div id="display-area">
+        <div class="box-container">
+            <div class="box">
+                <div id="scanner"></div>
+                <video id="video" autoplay muted playsinline></video>
+            </div>
+            <div class="label">ГОСТЬ</div>
+        </div>
+
+        <div class="vs">VS</div>
+
+        <div class="box-container">
+            <div class="box" id="match-box">
+                <img id="match-img" src="">
+            </div>
+            <div class="label" id="match-name">ДВОЙНИК</div>
+        </div>
+    </div>
+
+    <button id="btn" disabled onclick="startShow()">КТО ТВОЙ ДВОЙНИК?</button>
+
+    <script>
+        const video = document.getElementById('video');
+        const matchBox = document.getElementById('match-box');
+        const matchImg = document.getElementById('match-img');
+        const matchName = document.getElementById('match-name');
+        const scanner = document.getElementById('scanner');
+        const btn = document.getElementById('btn');
+
+        // Ссылки на фото из интернета (не занимают место на GitHub)
+        const database = [
+            { name: "ШРЕК", url: "https://i.pinimg.com/originals/e8/3b/6a/e83b6a957242171458e07221316c0b38.jpg" },
+            { name: "ДЖЕК ВОРОБЕЙ", url: "https://vignette.wikia.nocookie.net/disney/images/b/be/Jack_Sparrow_infobox.jpg" },
+            { name: "МИСТЕР БИН", url: "https://m.media-amazon.com/images/M/MV5BMTYyNjM2OTY0N15BMl5BanBnXkFtZTgwNzY4NjU0MzE@._V1_.jpg" },
+            { name: "ЧЕЛОВЕК-ПАУК", url: "https://vignette.wikia.nocookie.net/marvelcinematicuniverse/images/0/03/Spider-Man_FFH_Profile.jpg" },
+            { name: "ГАРРИ ПОТТЕР", url: "https://vignette.wikia.nocookie.net/harrypotter/images/d/d4/Harry_Potter_Half_Blood_Prince_poster.jpg" },
+            { name: "СКАЛА ДЖОНСОН", url: "https://m.media-amazon.com/images/M/MV5BMTkyNDQ5MDM1OV5BMl5BanBnXkFtZTgwMjg3ODIxMzE@._V1_.jpg" }
+        ];
+
+        async function init() {
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+            await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            video.srcObject = stream;
+            btn.disabled = false;
+        }
+
+        function startShow() {
+            btn.disabled = true;
+            matchBox.classList.remove('show');
+            matchName.innerText = "АНАЛИЗ...";
+            
+            // Запускаем сканер
+            scanner.style.display = "block";
+
+            // Имитация "думающего" ИИ (3 секунды)
+            setTimeout(() => {
+                scanner.style.display = "none";
+                
+                // Выбираем случайного персонажа
+                const result = database[Math.floor(Math.random() * database.length)];
+                
+                matchImg.src = result.url;
+                matchName.innerText = result.url ? result.name : "ОШИБКА СЕТИ";
+                matchBox.classList.add('show');
+
+                setTimeout(() => { btn.disabled = false; }, 3000);
+            }, 3000);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
